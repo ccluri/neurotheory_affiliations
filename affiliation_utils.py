@@ -1,4 +1,5 @@
 
+import time
 import pickle
 import os
 import csv
@@ -86,17 +87,22 @@ def fetch_text_loc(name_list):
                     labels_idx = labels_names.index(name)
                     gids.append(labels_ids[labels_idx])
                 except ValueError:
+                    gids.append('NULL')
                     not_found_idx.append(idw)
                     not_found.append(name)
 
     insti_list = []
     city_list = []
     country_list = []
-    for gid in gids:
-        idx = all_ids.index(gid)
-        insti_list.append(all_insti[idx])
-        city_list.append(all_insti_city[idx])
-        country_list.append(all_insti_country[idx])
+    for idx, gid in enumerate(gids):
+        if gid != 'NULL':
+            insti_list.append(all_insti[idx])
+            city_list.append(all_insti_city[idx])
+            country_list.append(all_insti_country[idx])
+        else:
+            insti_list.append('NULL')
+            city_list.append('NULL')
+            country_list.append('NULL')
     print(len(not_found), len(name_list))
     # if not_found:
     #     print('Not found for : ', not_found)
@@ -111,8 +117,14 @@ def fetch_loc(city_list, country_list):
     geolocator = Nominatim()
     locs = []
     for ii, name in enumerate(city_list):
-        locs.append(geolocator.geocode(name + ', ' +
-                                       country_list[ii]))
+        if ii % 20 == 0 :
+            time.sleep(3)
+        if name != 'NULL':
+            locs.append(geolocator.geocode(name + ', ' +
+                                           country_list[ii]))
+            print locs[-1].longitude
+        else:
+            locs.append(False)
     return locs
 
 
@@ -151,48 +163,30 @@ def fetch_cosyne_affliations():
     return auth_aff, aff_idx, coauth_names, title_list, title_ids
 
 
-def gen_name_exceptions(un_resolved_list):
-    f_names = []
-    for a_name in un_resolved_list:
-        name = a_name.lower()
-        if name.find('universitycollege') != -1:
-            f_names.append(name.replace('universitycollege', 'university college'))
-        elif name.find('universityof') != -1:
-            f_names.append(name.replace('universityof', 'university of'))
-        elif name.find('brandeisuniversity') != -1:
-            f_names.append(name.replace('brandeisuniversity', 'brandeis university'))
-        elif name.find('yaleuniversity') != -1:
-            f_names.append(name.replace('yaleuniversity', 'yale university'))
-        elif name.find('baylorcollege') != -1:
-            f_names.append(name.replace('baylorcollege', 'baylor college'))
-        elif name.find('hhmi') != -1:
-            f_names.append(name.replace('hhmi', 'howard hughes medical institute'))
-        elif name.find('inst.') != -1:
-            f_names.append(name.replace('inst.', 'institute'))
-        elif name.find('princeton') != -1:
-            f_names.append(name.replace('princeton', 'princeton university'))
-        elif name.find('janelia farm research campus') != -1:
-            f_names.append(name.replace('janelia farm research campus', 'howard hughes medical institute'))
-        else:
-            f_names.append(name)
-    return f_names
-
-
-
-# auth_aff, aff_idx = fetch_cosyne_affliations()  # list of list
-# un_resolved_list = []
-# for sub_list in auth_aff:
-#     for aff in sub_list:   # ' '.join(mystring.split())
-#         new = aff.strip()
-#         un_resolved_list.append(' '.join(new.split()))
-#         # print un_resolved_list[-1]
-# # print un_resolved_list
-# f_names = gen_name_exceptions(un_resolved_list)
-# insti_list, city_list, country_list, not_found, candidates = fetch_text_loc(f_names)
-
+auth_aff, aff_idx, coauth_names, title_list, title_ids = fetch_cosyne_affliations()  # list of list
+un_resolved_list = []
+for sub_list in auth_aff:
+    for aff in sub_list:   # ' '.join(mystring.split())
+        new = aff.strip()
+        un_resolved_list.append(' '.join(new.split()))
+        # print un_resolved_list[-1]
+# print un_resolved_list
+insti_list, city_list, country_list, not_found, not_found_idx, candidates = fetch_text_loc(un_resolved_list)
+print insti_list, city_list
 # for ii, noidea in enumerate(not_found):
 #     print noidea, candidates[ii]
+locs = fetch_loc(city_list, country_list)
+lat_list = []
+long_list = []
 
+for loc in locs:
+    if not loc:
+        lat_list.append(loc.latitude)
+        long_list.append(loc.longitude)
+    else:
+        lat_list.append('NULL')
+        long_list.append('NULL')
+print lat_list, long_list
 
 
 # i, city, country = fetch_text_loc(['Oxford university',
