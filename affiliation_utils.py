@@ -147,7 +147,8 @@ def fetch_cosyne_affliations():
         coauth_names, email_names = fetch_coauth_names(auth_list, ln_nos,
                                                        email_list, co_auth)
         # year = int(this_year.rstrip('.txt'))
-    return auth_aff, aff_idx, coauth_names
+    # print len(auth_list), auth_list, len(auth_aff)
+    return auth_aff, aff_idx, coauth_names, title_list, title_ids
 
 
 def gen_name_exceptions(un_resolved_list):
@@ -175,6 +176,7 @@ def gen_name_exceptions(un_resolved_list):
         else:
             f_names.append(name)
     return f_names
+
 
 
 # auth_aff, aff_idx = fetch_cosyne_affliations()  # list of list
