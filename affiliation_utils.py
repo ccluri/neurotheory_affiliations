@@ -152,7 +152,7 @@ def give_me_cosyne(this_year):
         user = True
         while user:
             user_input = raw_input('Use existing locations? (y/n): ')
-            if user_input in ['y', 'n']:
+            if user_input in ['y', 'Y']:
                 with open(loc_pickle, 'rb') as da_file:
                     lat_list, long_list = pickle.load(da_file)
                 user = False
