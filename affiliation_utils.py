@@ -145,7 +145,8 @@ def give_me_cosyne(this_year):
             title_aff_count_dict[title_id].append(aff_count)
             aff_count += 1
     gids, insti_list, city_list, country_list = fetch_text_loc(unres_aff_list)
-    loc_pickle = this_year.strip('.txt')+'_locs.pkl'
+    loc_pickle = os.path.join('..', 'cosyne_analysis', 'cosyne',
+                              this_year.strip('.txt')+'_locs.pkl')
     redo_locs = True
     if os.path.isfile(loc_pickle):
         user = True
