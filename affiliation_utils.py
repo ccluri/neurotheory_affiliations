@@ -90,8 +90,8 @@ def fetch_loc(city_list, country_list):
     locs = []
     print('Fetching geo locations - may take some time')
     for ii, name in enumerate(city_list):
-        time.sleep(0.2)
         if name != 'NULL':
+            time.sleep(0.2)  # Wait for a while before request
             locs.append(geolocator.geocode(name + ', ' +
                                            country_list[ii]))
         else:
@@ -145,21 +145,40 @@ def give_me_cosyne(this_year):
             title_aff_count_dict[title_id].append(aff_count)
             aff_count += 1
     gids, insti_list, city_list, country_list = fetch_text_loc(unres_aff_list)
-    locs = fetch_loc(city_list, country_list)
-    lat_list = []
-    long_list = []
-    for loc in locs:
-        if loc != 'NULL':
-            try:
-                lat_list.append(loc.latitude)
-                long_list.append(loc.longitude)
-            except AttributeError:
+    loc_pickle = this_year.strip('.txt')+'_locs.pkl'
+    redo_locs = True
+    if os.path.isfile(loc_pickle):
+        user = True
+        while user:
+            user_input = raw_input('Use existing locations? (y/n): ')
+            if user_input in ['y', 'n']:
+                with open(loc_pickle, 'rb') as da_file:
+                    lat_list, long_list = pickle.load(da_file)
+                user = False
+                redo_locs = False
+            elif user_input in ['n', 'N']:
+                user = False
+                pass
+            else:
+                pass
+    if redo_locs:
+        locs = fetch_loc(city_list, country_list)
+        lat_list = []
+        long_list = []
+        for loc in locs:
+            if loc != 'NULL':
+                try:
+                    lat_list.append(loc.latitude)
+                    long_list.append(loc.longitude)
+                except AttributeError:
+                    lat_list.append('NULL')
+                    long_list.append('NULL')
+            else:
                 lat_list.append('NULL')
                 long_list.append('NULL')
-        else:
-            lat_list.append('NULL')
-            long_list.append('NULL')
-    # print len(insti_list), len(auth_aff)
+        with open(loc_pickle, 'wb') as da_file:
+            print('Saving locations for future reference')
+            pickle.dump([lat_list, long_list], da_file, protocol=2)
     auth_count = 0
     with open(os.path.join('..', 'cosyne_analysis', 'cosyne',
                            this_year.strip('.txt') + '_aff.csv'), 'wb') as csvfile:
@@ -172,22 +191,19 @@ def give_me_cosyne(this_year):
             for kk, author in enumerate(coauth_names[idx]):
                 this_email = email_names[idx][kk]
                 affiliations = [int(pp)-1 for pp in aff_idx[auth_count]]
-                t_aff_count = 0
                 for affliation in affiliations:
-                    sp_idx = title_aff_count_dict[idx][t_aff_count]
+                    sp_idx = title_aff_count_dict[idx][affliation]
                     csvwriter.writerow([title_ids[idx]] + [this_email] + [author] +
                                        [auth_aff[idx][affliation], insti_list[sp_idx]] +
                                        [gids[sp_idx], city_list[sp_idx], country_list[sp_idx]] +
                                        [lat_list[sp_idx], long_list[sp_idx]])
-                    t_aff_count += 1
                 auth_count += 1
     print('Finished :', this_year)
 
 
 # all_abstracts = ['2012.txt', '2013.txt', '2014.txt',
 #                  '2015.txt', '2016.txt', '2017.txt']
-all_abstracts = ['2014.txt',
-                 '2015.txt', '2016.txt', '2017.txt']
+all_abstracts = ['2016.txt']
 for abstract in all_abstracts:
     give_me_cosyne(abstract)
 
