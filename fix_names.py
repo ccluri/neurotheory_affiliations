@@ -83,7 +83,7 @@ else:
     
 filename = os.path.join('authorsUnresolvedAff.csv')
 year_list, title_list, author_list, n_aff_list = victor_exceptions(filename)
-with open('exceptions_alias.csv', 'ab') as csvfile:
+with open('exceptions_alias.csv', 'at') as csvfile:
     writer = csv.writer(csvfile, delimiter=':')
     new_aff_list = n_aff_list[start_pt:end_pt]
     for id_prev, noidea in enumerate(new_aff_list):
@@ -107,7 +107,7 @@ with open('exceptions_alias.csv', 'ab') as csvfile:
             if uinput != '':
                 already_parsed[noidea] = uinput.lower()
                 writer.writerow([noidea, uinput.lower()])
-                print("completed percent : ", (100. * float(idx)) / float(len(new_aff_list)))
+                # print("completed percent : ", (100. * float(idx)) / float(len(new_aff_list)))
 
 # print simple_mistakes('universityof manchester')
 # print simple_mistakes('oxford university')
