@@ -204,9 +204,9 @@ def give_me_cosyne(this_year):
 
 # all_abstracts = ['2012.txt', '2013.txt', '2014.txt',
 #                  '2015.txt', '2016.txt', '2017.txt']
-all_abstracts = ['2016.txt']
-for abstract in all_abstracts:
-    give_me_cosyne(abstract)
+# all_abstracts = ['2016.txt']
+# for abstract in all_abstracts:
+#     give_me_cosyne(abstract)
 
 # i, city, country = fetch_text_loc(['Oxford university',
 #                                    'University of oxford',
