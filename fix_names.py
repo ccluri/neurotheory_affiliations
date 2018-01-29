@@ -29,7 +29,7 @@ def victor_exceptions(filename):
     title_list = []
     author_list = []
     affiliation_list = []
-    with open(filename, 'rb') as csvfile:
+    with open(filename, 'rt') as csvfile:
         spamreader = csv.reader(csvfile, delimiter=',')
         for ii, row in enumerate(spamreader):
             if ii > 0:
@@ -58,7 +58,7 @@ def simple_mistakes(name):
 
 already_parsed = {}
 if os.path.isfile('exceptions_alias.csv'):
-    with open('exceptions_alias.csv', 'rb') as csvfile:
+    with open('exceptions_alias.csv', 'rt') as csvfile:
         spamreader = csv.reader(csvfile, delimiter=':')
         for row in spamreader:
             old, new = row
@@ -82,10 +82,12 @@ else:
     end_pt = 2167
     
 filename = os.path.join('authorsUnresolvedAff.csv')
-year_list, title_list, author_list, new_aff_list = victor_exceptions(filename)
+year_list, title_list, author_list, n_aff_list = victor_exceptions(filename)
 with open('exceptions_alias.csv', 'ab') as csvfile:
     writer = csv.writer(csvfile, delimiter=':')
-    for idx, noidea in enumerate(new_aff_list):
+    new_aff_list = n_aff_list[start_pt:end_pt]
+    for id_prev, noidea in enumerate(new_aff_list):
+        idx = id_prev + start_pt
         if noidea not in already_parsed.keys():
             testname = simple_mistakes(noidea)
             if testname in all_names:
@@ -101,7 +103,7 @@ with open('exceptions_alias.csv', 'ab') as csvfile:
                 y_noidea = year_list[idx] + '| '
                 t_noidea = title_list[idx] + '| '
                 bing.search(noidea + ' ' + author_list[idx], 3)
-                uinput = raw_input(y_noidea + t_noidea + a_noidea + noidea + ' | Correction :  ', )
+                uinput = input(y_noidea + t_noidea + a_noidea + noidea + ' | Correction :  ', )
             if uinput != '':
                 already_parsed[noidea] = uinput.lower()
                 writer.writerow([noidea, uinput.lower()])
