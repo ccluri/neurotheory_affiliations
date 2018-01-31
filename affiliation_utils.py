@@ -1,4 +1,4 @@
-
+# -*- coding: utf-8 -*-
 import time
 import pickle
 import os
@@ -14,6 +14,16 @@ def consolidated_names():
     output = (i_g_dict, g_i_dict, g_city_dict, g_country_dict,
               alias_g_dict, labels_g_dict)
     return output
+
+
+def exceptions_alias():
+    name_exceptions = {}
+    with open('exceptions_alias.csv', 'rt') as csvfile:
+        spamreader = csv.reader(csvfile, delimiter=':')
+        for row in spamreader:
+            if row[0].lower() not in name_exceptions.keys():
+                name_exceptions[row[0].lower()] = row[1] # .lower()
+    return name_exceptions
 
 
 def populate_names():
@@ -45,8 +55,21 @@ def populate_labels():
     with open(os.path.join('.', 'full_tables', 'labels.csv')) as h:
         reader = csv.reader(h, delimiter=',')
         for row in reader:
-            labels_g_dict[row[1].lower()] = row[0]
+            labels_g_dict[row[2].lower()] = row[0]
     return labels_g_dict
+
+
+def resolve_name(rname, i_g, a_g, l_g):
+    name = rname.lower()
+    if name in i_g.keys():
+        g = i_g[name]
+    elif name in a_g:
+        g = a_g[name]
+    elif name in l_g:
+        g = l_g[name]
+    else:
+        g = 'NULL'
+    return g
 
 
 def fetch_text_loc(name_list):
@@ -54,16 +77,16 @@ def fetch_text_loc(name_list):
     found_idx = []
     not_found_idx = []
     i_g, g_i, g_city, g_country, a_g, l_g = consolidated_names()
+    name_exceptions = exceptions_alias()
     for idw, rname in enumerate(name_list):
-        name = rname.lower()
-        if name in i_g:
-            gids.append(i_g[name])
-            found_idx.append(idw)
-        elif name in a_g:
-            gids.append(a_g[name])
-            found_idx.append(idw)
-        elif name in l_g:
-            gids.append(l_g[name])
+        pre_name = rname.lower()
+        if pre_name in name_exceptions:
+            name = name_exceptions[pre_name]
+        else:
+            name = pre_name
+        gid = resolve_name(name, i_g, a_g, l_g)
+        if gid != 'NULL':
+            gids.append(gid)
             found_idx.append(idw)
         else:
             gids.append('NULL')
@@ -80,7 +103,7 @@ def fetch_text_loc(name_list):
             insti_list.append('NULL')
             city_list.append('NULL')
             country_list.append('NULL')
-    print(len(not_found_idx), len(name_list))
+    print(len(not_found_idx), len(name_list), 'not found/ all')
     return gids, insti_list, city_list, country_list
 
 
@@ -90,8 +113,8 @@ def fetch_loc(city_list, country_list):
     locs = []
     print('Fetching geo locations - may take some time')
     for ii, name in enumerate(city_list):
-        if name != 'NULL':
-            time.sleep(0.2)  # Wait for a while before request
+        if name != 'NULL' and name != '':
+            time.sleep(0.5)  # Wait for a while before request
             locs.append(geolocator.geocode(name + ', ' +
                                            country_list[ii]))
         else:
@@ -114,22 +137,49 @@ def fetch_coauth_names(auth_list, ln_nos, email_list, co_auth):
 
 
 def fetch_cosyne_affliations(this_year):
-    all_abstracts = [this_year]
-    big_list = {}
-    for this_year in all_abstracts:
-        with open(os.path.join('..', 'cosyne_analysis', 'cosyne',
-                               this_year+'_meta.pkl'), 'rb') as da_file:
-            big_list[this_year] = pickle.load(da_file)
-    for this_year in all_abstracts:
-        g = big_list[this_year]
-        auth_list, ln_nos, title_list, title_nos = g[0:4]
-        email_list, co_auth, title_ids = g[4:7]
-        auth_aff, aff_idx, abs_start_ln = g[7:10]
-        coauth_names, email_names = fetch_coauth_names(auth_list, ln_nos,
-                                                       email_list, co_auth)
+    with open(os.path.join('..', 'cosyne_analysis', 'cosyne',
+                           this_year+'_meta.pkl'), 'rb') as da_file:
+        g = pickle.load(da_file, fix_imports=True, encoding='utf-8') # , errors='strict')
+    auth_list, ln_nos, title_list, title_nos = g[0:4]
+    email_list, co_auth, title_ids = g[4:7]
+    auth_aff, aff_idx, abs_start_ln = g[7:10]
+    coauth_names, email_names = fetch_coauth_names(auth_list, ln_nos,
+                                                   email_list, co_auth)
         # year = int(this_year.rstrip('.txt'))
     # print len(auth_list), auth_list, len(auth_aff)
     return auth_aff, aff_idx, coauth_names, title_list, title_ids, email_names
+
+
+def update_gid_dict(gids, city_list, country_list):
+    loc_pickle = 'gid_lat_long.pkl'
+    if os.path.isfile(loc_pickle):
+        with open(loc_pickle, 'rb') as da_file:
+            gid_latlong_dict = pickle.load(da_file)
+    else:
+        gid_latlong_dict = {}
+    ugids = set(gids)
+    unknown_city = []
+    unknown_country = []
+    unknown_gid = []
+    for idx, gid in enumerate(ugids):
+        if gid not in gid_latlong_dict.keys() and gid != 'NULL':
+            idp = gids.index(gid)
+            unknown_city.append(city_list[idp])
+            unknown_country.append(country_list[idp])
+            unknown_gid.append(gid)
+    locs = fetch_loc(unknown_city, unknown_country)
+    for idx, loc in enumerate(locs):
+        try:
+            lat = loc.latitude
+            longi = loc.longitude
+            gid_latlong_dict[unknown_gid[idx]] = [lat, longi]
+        except AttributeError:
+            #  geopy couldnt resolve the location
+            gid_latlong_dict[unknown_gid[idx]] = ['NULL', 'NULL']
+    with open(loc_pickle, 'wb') as da_file:
+        print('Updating the grid_lat_long dictionary')
+        pickle.dump(gid_latlong_dict, da_file, protocol=2)    
+    return gid_latlong_dict
 
 
 def give_me_cosyne(this_year):
@@ -145,45 +195,12 @@ def give_me_cosyne(this_year):
             title_aff_count_dict[title_id].append(aff_count)
             aff_count += 1
     gids, insti_list, city_list, country_list = fetch_text_loc(unres_aff_list)
-    loc_pickle = os.path.join('..', 'cosyne_analysis', 'cosyne',
-                              this_year.strip('.txt')+'_locs.pkl')
-    redo_locs = True
-    if os.path.isfile(loc_pickle):
-        user = True
-        while user:
-            user_input = raw_input('Use existing locations? (y/n): ')
-            if user_input in ['y', 'Y']:
-                with open(loc_pickle, 'rb') as da_file:
-                    lat_list, long_list = pickle.load(da_file)
-                user = False
-                redo_locs = False
-            elif user_input in ['n', 'N']:
-                user = False
-                pass
-            else:
-                pass
-    if redo_locs:
-        locs = fetch_loc(city_list, country_list)
-        lat_list = []
-        long_list = []
-        for loc in locs:
-            if loc != 'NULL':
-                try:
-                    lat_list.append(loc.latitude)
-                    long_list.append(loc.longitude)
-                except AttributeError:
-                    lat_list.append('NULL')
-                    long_list.append('NULL')
-            else:
-                lat_list.append('NULL')
-                long_list.append('NULL')
-        with open(loc_pickle, 'wb') as da_file:
-            print('Saving locations for future reference')
-            pickle.dump([lat_list, long_list], da_file, protocol=2)
+    gid_latlong_dict = update_gid_dict(gids, city_list, country_list)
     auth_count = 0
     with open(os.path.join('..', 'cosyne_analysis', 'cosyne',
-                           this_year.strip('.txt') + '_aff.csv'), 'wb') as csvfile:
-        csvwriter = csv.writer(csvfile, delimiter=',')
+                           this_year.strip('.txt') + '_aff.csv'), 'wt') as csvfile:
+        csv.register_dialect('vic_format', delimiter=',', quotechar='"')
+        csvwriter = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
         csvwriter.writerow(['ID', 'Email'] +
                            ['Author', 'Affiliation'] +
                            ['Aff resolved', 'GRID'] +
@@ -194,20 +211,37 @@ def give_me_cosyne(this_year):
                 affiliations = [int(pp)-1 for pp in aff_idx[auth_count]]
                 for affliation in affiliations:
                     sp_idx = title_aff_count_dict[idx][affliation]
-                    csvwriter.writerow([title_ids[idx]] + [this_email] + [author] +
-                                       [auth_aff[idx][affliation], insti_list[sp_idx]] +
-                                       [gids[sp_idx], city_list[sp_idx], country_list[sp_idx]] +
-                                       [lat_list[sp_idx], long_list[sp_idx]])
+                    if gids[sp_idx] != 'NULL':
+                        csvwriter.writerow([title_ids[idx]] + [this_email] + [author] +
+                                           [auth_aff[idx][affliation], insti_list[sp_idx]] +
+                                           [gids[sp_idx], city_list[sp_idx], country_list[sp_idx]] +
+                                           [str(jj) for jj in gid_latlong_dict[gids[sp_idx]]])
+                    else:
+                        csvwriter.writerow([title_ids[idx]] + [this_email] + [author] +
+                                           [auth_aff[idx][affliation], ''] +
+                                           ['', '', '', ''])
                 auth_count += 1
     print('Finished :', this_year)
 
 
+
 # all_abstracts = ['2012.txt', '2013.txt', '2014.txt',
 #                  '2015.txt', '2016.txt', '2017.txt']
-# all_abstracts = ['2016.txt']
+# # all_abstracts = ['2015.txt']
 # for abstract in all_abstracts:
 #     give_me_cosyne(abstract)
+    
+# i_g, g_i, g_city, g_country, a_g, l_g = consolidated_names()
+# name = 'Ecole Polytechnique Federale de Lausanne'
+# name_exceptions = exceptions_alias()
+# print(name_exceptions[name.lower()], 'lower')
+# g = resolve_name(name_exceptions[name.lower()], i_g, a_g, l_g)
+# print(g)
 
+# print(fetch_text_loc(['BernsteinCenter for Computational Neuroscience, Munich',
+#                       'Ecole Polytechnique Federale de Lausanne']))
+    
+    
 # i, city, country = fetch_text_loc(['Oxford university',
 #                                    'University of oxford',
 #                                    'Caltech',
